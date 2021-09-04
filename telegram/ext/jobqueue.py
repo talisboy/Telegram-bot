@@ -73,7 +73,15 @@ class JobQueue:
         self._dispatcher.update_persistence()
 
     def _dispatch_error(self, event: JobEvent) -> None:
-        self._dispatcher.dispatch_error(None, event.exception)
+        try:
+            self._dispatcher.dispatch_error(None, event.exception)
+        # Errors should not stop the thread.
+        except Exception:
+            self.logger.exception(
+                'An error was raised while processing the job and an '
+                'uncaught error was raised while handling the error '
+                'with an error_handler.'
+            )
 
     @overload
     def _parse_time_input(self, time: None, shift_day: bool = False) -> None:
@@ -134,11 +142,7 @@ class JobQueue:
 
         Args:
             callback (:obj:`callable`): The callback function that should be executed by the new
-                job.
-            Callback signature:
-
-
-            ``def callback(update: Update, context: CallbackContext)``
+                job. Callback signature: ``def callback(update: Update, context: CallbackContext)``
             when (:obj:`int` | :obj:`float` | :obj:`datetime.timedelta` |                         \
                   :obj:`datetime.datetime` | :obj:`datetime.time`):
                 Time in or at which the job should run. This parameter will be interpreted
@@ -208,11 +212,7 @@ class JobQueue:
 
         Args:
             callback (:obj:`callable`): The callback function that should be executed by the new
-                job.
-            Callback signature:
-
-
-            ``def callback(update: Update, context: CallbackContext)``
+                job. Callback signature: ``def callback(update: Update, context: CallbackContext)``
             interval (:obj:`int` | :obj:`float` | :obj:`datetime.timedelta`): The interval in which
                 the job will run. If it is an :obj:`int` or a :obj:`float`, it will be interpreted
                 as seconds.
@@ -302,11 +302,7 @@ class JobQueue:
 
         Args:
             callback (:obj:`callable`):  The callback function that should be executed by the new
-                job.
-            Callback signature:
-
-
-            ``def callback(update: Update, context: CallbackContext)``
+                job. Callback signature: ``def callback(update: Update, context: CallbackContext)``
             when (:obj:`datetime.time`): Time of day at which the job should run. If the timezone
                 (``when.tzinfo``) is :obj:`None`, the default timezone of the bot will be used.
             day (:obj:`int`): Defines the day of the month whereby the job would run. It should
@@ -365,11 +361,7 @@ class JobQueue:
 
         Args:
             callback (:obj:`callable`): The callback function that should be executed by the new
-                job.
-            Callback signature:
-
-
-            ``def callback(update: Update, context: CallbackContext)``
+                job. Callback signature: ``def callback(update: Update, context: CallbackContext)``
             time (:obj:`datetime.time`): Time of day at which the job should run. If the timezone
                 (``time.tzinfo``) is :obj:`None`, the default timezone of the bot will be used.
             days (Tuple[:obj:`int`], optional): Defines on which days of the week the job should
@@ -419,11 +411,7 @@ class JobQueue:
 
         Args:
             callback (:obj:`callable`): The callback function that should be executed by the new
-                job.
-            Callback signature:
-
-
-            ``def callback(update: Update, context: CallbackContext)``
+                job. Callback signature: ``def callback(update: Update, context: CallbackContext)``
             job_kwargs (:obj:`dict`): Arbitrary keyword arguments. Used as arguments for
                 ``scheduler.add_job``.
             context (:obj:`object`, optional): Additional data needed for the callback function.
@@ -486,10 +474,7 @@ class Job:
 
     Args:
         callback (:obj:`callable`): The callback function that should be executed by the new job.
-            Callback signature:
-
-
-            ``def callback(update: Update, context: CallbackContext)``
+            Callback signature: ``def callback(update: Update, context: CallbackContext)``
         context (:obj:`object`, optional): Additional data needed for the callback function. Can be
             accessed through ``job.context`` in the callback. Defaults to :obj:`None`.
         name (:obj:`str`, optional): The name of the new job. Defaults to ``callback.__name__``.
@@ -539,7 +524,15 @@ class Job:
         try:
             self.callback(dispatcher.context_types.context.from_job(self, dispatcher))
         except Exception as exc:
-            dispatcher.dispatch_error(None, exc)
+            try:
+                dispatcher.dispatch_error(None, exc)
+            # Errors should not stop the thread.
+            except Exception:
+                dispatcher.logger.exception(
+                    'An error was raised while processing the job and an '
+                    'uncaught error was raised while handling the error '
+                    'with an error_handler.'
+                )
 
     def schedule_removal(self) -> None:
         """
